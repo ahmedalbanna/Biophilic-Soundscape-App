@@ -30,6 +30,7 @@ export function Navbar({
     { id: 'circadian', labelAr: 'الدورة اليومية', labelEn: 'Circadian Rhythm' },
     { id: 'hardware', labelAr: 'بنية العتاد والمناطق', labelEn: 'Hardware & Zones' },
     { id: 'advisor', labelAr: 'المستشار الذكي', labelEn: 'AI Advisor' },
+    { id: 'deployment', labelAr: 'النشر وHome Assistant', labelEn: 'Deployment & HA' },
   ];
 
   return (

@@ -7,6 +7,7 @@ import { VadDuckingView } from '@/components/VadDuckingView';
 import { CircadianTimelineView } from '@/components/CircadianTimelineView';
 import { HardwareTopologyView } from '@/components/HardwareTopologyView';
 import { AiAdvisorView } from '@/components/AiAdvisorView';
+import { DeploymentIntegrationView } from '@/components/DeploymentIntegrationView';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
 import { CIRCADIAN_PHASES, getPhaseForHour, CircadianPhase, SocialPreset } from '@/lib/circadian-data';
@@ -407,6 +408,10 @@ export default function Home() {
 
         {activeTab === 'advisor' && (
           <AiAdvisorView onApplyRecommendation={handleApplyAiRecommendation} />
+        )}
+
+        {activeTab === 'deployment' && (
+          <DeploymentIntegrationView />
         )}
       </main>
 
