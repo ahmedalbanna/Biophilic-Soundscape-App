@@ -52,6 +52,10 @@ class BiophilicAudioEngine {
   private oceanLpf: BiquadFilterNode | null = null;
   private oceanWaveGain: GainNode | null = null;
 
+  // Media & Recitation Overlay Bus
+  private mediaGain: GainNode | null = null;
+  private mediaSourceNode: MediaElementAudioSourceNode | null = null;
+
   // Active audio nodes to clean up
   private noiseNodes: AudioNode[] = [];
   private intervals: NodeJS.Timeout[] = [];
@@ -91,6 +95,11 @@ class BiophilicAudioEngine {
     this.duckingGain.connect(this.adhanSilenceGain);
     this.adhanSilenceGain.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
+
+    // Media & Recitation Overlay Gain (connects into AdhanSilence so it respects prayer windows)
+    this.mediaGain = this.ctx.createGain();
+    this.mediaGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
+    this.mediaGain.connect(this.adhanSilenceGain);
 
     // Build Continuous Generators
     this.setupWaterLayer();
@@ -237,6 +246,31 @@ class BiophilicAudioEngine {
         if (this.oceanGain) this.oceanGain.gain.setTargetAtTime(0.0, now, 0.5);
         break;
     }
+  }
+
+  // --- Media & Quran Recitation Overlay Routing ---
+  public connectMediaElement(element: HTMLAudioElement) {
+    if (!this.ctx || !this.mediaGain) return;
+    try {
+      if (!this.mediaSourceNode) {
+        this.mediaSourceNode = this.ctx.createMediaElementSource(element);
+        this.mediaSourceNode.connect(this.mediaGain);
+      }
+    } catch {
+      // Element already connected
+    }
+  }
+
+  public setMediaVolume(vol: number) {
+    if (!this.ctx || !this.mediaGain) return;
+    const clamped = Math.max(0, Math.min(1, vol));
+    this.mediaGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.05);
+  }
+
+  public setMediaOverlayDucking(active: boolean, depthDb = -16) {
+    if (!this.ctx || !this.duckingGain) return;
+    const targetGain = active ? Math.pow(10, depthDb / 20) : 1.0;
+    this.duckingGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, active ? 0.3 : 1.8);
   }
 
   // --- Procedural Continuous Layers ---

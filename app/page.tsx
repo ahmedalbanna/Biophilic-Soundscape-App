@@ -12,6 +12,7 @@ import { SpatialStudioView } from '@/components/SpatialStudioView';
 import { WeatherPrayerSyncView } from '@/components/WeatherPrayerSyncView';
 import { BiofeedbackBreathingView } from '@/components/BiofeedbackBreathingView';
 import { UrbanNoiseMaskingView } from '@/components/UrbanNoiseMaskingView';
+import { SnapcastMediaOverlayView } from '@/components/SnapcastMediaOverlayView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -408,6 +409,13 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'snapcast' && (
+          <SnapcastMediaOverlayView
+            onEngineStartRequest={handleTogglePlay}
+            isEnginePlaying={isPlaying}
           />
         )}
 
