@@ -17,6 +17,7 @@ import { CustomSoundbankStudioView } from '@/components/CustomSoundbankStudioVie
 import { RegionalBiomesView } from '@/components/RegionalBiomesView';
 import { WallKioskModeView } from '@/components/WallKioskModeView';
 import { CircadianLightingSyncView } from '@/components/CircadianLightingSyncView';
+import { CircadianSunriseAlarmView } from '@/components/CircadianSunriseAlarmView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -413,6 +414,15 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'alarm' && (
+          <CircadianSunriseAlarmView
+            onEngineStartRequest={handleTogglePlay}
+            isEnginePlaying={isPlaying}
+            onLayerChange={handleLayerChange}
+            onMasterVolumeChange={handleVolumeChange}
           />
         )}
 
