@@ -26,6 +26,7 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'soundbank', labelAr: 'مستودع التسجيلات', labelEn: 'Soundbank FLAC' },
     { id: 'snapcast', labelAr: 'التلاوات والغرف', labelEn: 'Snapcast & Media' },
     { id: 'masking', labelAr: 'قناع الضوضاء', labelEn: 'Noise Masking' },
     { id: 'biofeedback', labelAr: 'التنفس والنبض', labelEn: 'Biofeedback & Breath' },

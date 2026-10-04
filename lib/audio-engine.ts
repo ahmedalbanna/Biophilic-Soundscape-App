@@ -56,6 +56,21 @@ class BiophilicAudioEngine {
   private mediaGain: GainNode | null = null;
   private mediaSourceNode: MediaElementAudioSourceNode | null = null;
 
+  // Custom FLAC & Hi-Res Soundbank Slots
+  private customSlots: Map<
+    string,
+    {
+      buffer: AudioBuffer;
+      isLoop: boolean;
+      volume: number;
+      pan: number;
+      sourceNode?: AudioBufferSourceNode;
+      gainNode?: GainNode;
+      pannerNode?: StereoPannerNode;
+      timeout?: NodeJS.Timeout;
+    }
+  > = new Map();
+
   // Active audio nodes to clean up
   private noiseNodes: AudioNode[] = [];
   private intervals: NodeJS.Timeout[] = [];
@@ -271,6 +286,161 @@ class BiophilicAudioEngine {
     if (!this.ctx || !this.duckingGain) return;
     const targetGain = active ? Math.pow(10, depthDb / 20) : 1.0;
     this.duckingGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, active ? 0.3 : 1.8);
+  }
+
+  // --- Custom FLAC & Hi-Res Soundbank Engine ---
+  public async decodeAudioBlob(blob: Blob): Promise<AudioBuffer> {
+    if (!this.ctx) {
+      this.init();
+    }
+    const arrayBuffer = await blob.arrayBuffer();
+    return await this.ctx!.decodeAudioData(arrayBuffer);
+  }
+
+  public registerCustomSoundSlot(
+    slotId: string,
+    buffer: AudioBuffer,
+    isLoop: boolean,
+    volume = 0.7,
+    pan = 0
+  ) {
+    this.removeCustomSlot(slotId);
+    this.customSlots.set(slotId, {
+      buffer,
+      isLoop,
+      volume,
+      pan,
+    });
+  }
+
+  public startCustomLoopSlot(slotId: string) {
+    const slot = this.customSlots.get(slotId);
+    if (!slot || !this.ctx || !this.masterGain) return;
+
+    this.stopCustomLoopSlot(slotId);
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = slot.buffer;
+    source.loop = true;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(slot.volume, this.ctx.currentTime);
+
+    const panner = this.ctx.createStereoPanner();
+    panner.pan.setValueAtTime(slot.pan, this.ctx.currentTime);
+
+    source.connect(gain);
+    gain.connect(panner);
+    panner.connect(this.masterGain);
+
+    source.start();
+
+    slot.sourceNode = source;
+    slot.gainNode = gain;
+    slot.pannerNode = panner;
+  }
+
+  public stopCustomLoopSlot(slotId: string) {
+    const slot = this.customSlots.get(slotId);
+    if (!slot) return;
+    if (slot.sourceNode) {
+      try {
+        slot.sourceNode.stop();
+        slot.sourceNode.disconnect();
+      } catch {
+        // already stopped
+      }
+      slot.sourceNode = undefined;
+    }
+    if (slot.gainNode) {
+      slot.gainNode.disconnect();
+      slot.gainNode = undefined;
+    }
+    if (slot.pannerNode) {
+      slot.pannerNode.disconnect();
+      slot.pannerNode = undefined;
+    }
+  }
+
+  public triggerCustomStochasticSlot(slotId: string, pitchVariation = 0) {
+    const slot = this.customSlots.get(slotId);
+    if (!slot || !this.ctx || !this.masterGain) return;
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = slot.buffer;
+    source.loop = false;
+
+    // Apply slight pitch variance (semitone detune)
+    if (pitchVariation !== 0) {
+      source.detune.setValueAtTime(pitchVariation * 100, this.ctx.currentTime);
+    }
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(slot.volume, this.ctx.currentTime);
+
+    const panner = this.ctx.createStereoPanner();
+    panner.pan.setValueAtTime(slot.pan, this.ctx.currentTime);
+
+    source.connect(gain);
+    gain.connect(panner);
+    panner.connect(this.masterGain);
+
+    source.start();
+  }
+
+  public startCustomStochasticScheduler(
+    slotId: string,
+    minIntervalSec: number,
+    maxIntervalSec: number,
+    pitchJitter = 1.0
+  ) {
+    const slot = this.customSlots.get(slotId);
+    if (!slot) return;
+    this.stopCustomStochasticScheduler(slotId);
+
+    const scheduleNext = () => {
+      const intervalSec = minIntervalSec + Math.random() * (maxIntervalSec - minIntervalSec);
+      slot.timeout = setTimeout(() => {
+        if (!this.isRunning) return;
+        const randomPitch = (Math.random() * 2 - 1) * pitchJitter;
+        this.triggerCustomStochasticSlot(slotId, randomPitch);
+        scheduleNext();
+      }, intervalSec * 1000);
+    };
+
+    scheduleNext();
+  }
+
+  public stopCustomStochasticScheduler(slotId: string) {
+    const slot = this.customSlots.get(slotId);
+    if (slot && slot.timeout) {
+      clearTimeout(slot.timeout);
+      slot.timeout = undefined;
+    }
+  }
+
+  public setCustomSlotVolume(slotId: string, volume: number) {
+    const slot = this.customSlots.get(slotId);
+    if (!slot) return;
+    slot.volume = volume;
+    if (slot.gainNode && this.ctx) {
+      slot.gainNode.gain.setTargetAtTime(volume, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  public setCustomSlotPan(slotId: string, pan: number) {
+    const slot = this.customSlots.get(slotId);
+    if (!slot) return;
+    slot.pan = pan;
+    if (slot.pannerNode && this.ctx) {
+      slot.pannerNode.pan.setTargetAtTime(pan, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  public removeCustomSlot(slotId: string) {
+    this.stopCustomLoopSlot(slotId);
+    this.stopCustomStochasticScheduler(slotId);
+    this.customSlots.delete(slotId);
   }
 
   // --- Procedural Continuous Layers ---
