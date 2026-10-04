@@ -49,6 +49,8 @@ class BiophilicAudioEngine {
   private rainPanner: StereoPannerNode | null = null;
   private oceanGain: GainNode | null = null;
   private oceanPanner: StereoPannerNode | null = null;
+  private oceanLpf: BiquadFilterNode | null = null;
+  private oceanWaveGain: GainNode | null = null;
 
   // Active audio nodes to clean up
   private noiseNodes: AudioNode[] = [];
@@ -363,6 +365,9 @@ class BiophilicAudioEngine {
     lfo.connect(lfoGain);
     lfoGain.connect(lpf.frequency);
 
+    this.oceanLpf = lpf;
+    this.oceanWaveGain = waveGain;
+
     noiseSource.connect(lpf);
     lpf.connect(waveGain);
     waveGain.connect(this.oceanGain);
@@ -374,6 +379,76 @@ class BiophilicAudioEngine {
     noiseSource.start();
     lfo.start();
     this.noiseNodes.push(noiseSource, lfo);
+  }
+
+  // --- Biometric Biofeedback & Paced Breathing Wave Swell ---
+  public triggerBreathingSwell(phase: 'inhale' | 'hold' | 'exhale', durationSec: number) {
+    if (!this.ctx || !this.oceanGain) return;
+    const now = this.ctx.currentTime;
+    const timeConstant = Math.max(0.1, durationSec / 2.8);
+
+    // Make sure ocean layer is audible during breathing exercises
+    if (this.oceanGain.gain.value < 0.25) {
+      this.oceanGain.gain.setTargetAtTime(0.65, now, 0.5);
+    }
+
+    if (phase === 'inhale') {
+      // Swell up: brighter resonance and rising wave volume
+      if (this.oceanLpf) {
+        this.oceanLpf.frequency.setTargetAtTime(620, now, timeConstant);
+      }
+      if (this.oceanWaveGain) {
+        this.oceanWaveGain.gain.setTargetAtTime(1.0, now, timeConstant);
+      }
+    } else if (phase === 'hold') {
+      // Gentle plateau at top of lungs
+      if (this.oceanWaveGain) {
+        this.oceanWaveGain.gain.setTargetAtTime(0.85, now, 0.4);
+      }
+    } else if (phase === 'exhale') {
+      // Release & retreat: deeper, softer rumble onto smooth shoreline
+      if (this.oceanLpf) {
+        this.oceanLpf.frequency.setTargetAtTime(240, now, timeConstant);
+      }
+      if (this.oceanWaveGain) {
+        this.oceanWaveGain.gain.setTargetAtTime(0.18, now, timeConstant);
+      }
+    }
+  }
+
+  // Pure 432Hz Tibetan Singing Bowl chime for transition pacing
+  public triggerSingingBowl(freq = 432) {
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const bowlGain = this.ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, now);
+
+    // Subtle harmonic overtone
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(freq * 2.76, now);
+
+    const subGain = this.ctx.createGain();
+    subGain.gain.setValueAtTime(0.2, now);
+    osc2.connect(subGain);
+    subGain.connect(bowlGain);
+
+    osc1.connect(bowlGain);
+    bowlGain.connect(this.masterGain);
+
+    // Gentle strike and long, peaceful 4.5-second decay
+    bowlGain.gain.setValueAtTime(0.0001, now);
+    bowlGain.gain.linearRampToValueAtTime(0.25, now + 0.08);
+    bowlGain.gain.exponentialRampToValueAtTime(0.0001, now + 4.5);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 4.6);
+    osc2.stop(now + 4.6);
   }
 
   // 2D Spatial Positioning: Pan (-1 to 1) and Distance Attenuation (0 to 1)

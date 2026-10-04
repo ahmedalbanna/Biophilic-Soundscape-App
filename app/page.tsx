@@ -10,6 +10,7 @@ import { AiAdvisorView } from '@/components/AiAdvisorView';
 import { DeploymentIntegrationView } from '@/components/DeploymentIntegrationView';
 import { SpatialStudioView } from '@/components/SpatialStudioView';
 import { WeatherPrayerSyncView } from '@/components/WeatherPrayerSyncView';
+import { BiofeedbackBreathingView } from '@/components/BiofeedbackBreathingView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -406,6 +407,13 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'biofeedback' && (
+          <BiofeedbackBreathingView
+            onEngineStartRequest={handleTogglePlay}
+            isEnginePlaying={isPlaying}
           />
         )}
 
