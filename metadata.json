@@ -1,0 +1,6 @@
+{
+  "name": "Biophilic Soundscape | نظام البيئة الصوتية الحيوية",
+  "description": "نظام ذكي متكامل للمنازل العصرية يحول البيت إلى بيئة صوتية حيوية متفاعلة مع فترات اليوم، بتقنية التراكب الديناميكي وكشف الكلام (VAD) والتنظيم الذكي لمستوى الصوت وتوزيع الغرف المتعددة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
