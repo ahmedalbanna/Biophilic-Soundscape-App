@@ -41,9 +41,13 @@ class BiophilicAudioEngine {
 
   // Background layers
   private waterGain: GainNode | null = null;
+  private waterPanner: StereoPannerNode | null = null;
   private breezeGain: GainNode | null = null;
+  private breezePanner: StereoPannerNode | null = null;
   private rainGain: GainNode | null = null;
+  private rainPanner: StereoPannerNode | null = null;
   private oceanGain: GainNode | null = null;
+  private oceanPanner: StereoPannerNode | null = null;
 
   // Active audio nodes to clean up
   private noiseNodes: AudioNode[] = [];
@@ -243,7 +247,10 @@ class BiophilicAudioEngine {
     noiseSource.connect(bpf);
     bpf.connect(hpf);
     hpf.connect(this.waterGain);
-    this.waterGain.connect(this.masterGain);
+
+    this.waterPanner = this.ctx.createStereoPanner();
+    this.waterGain.connect(this.waterPanner);
+    this.waterPanner.connect(this.masterGain);
 
     noiseSource.start();
     lfo.start();
@@ -277,7 +284,10 @@ class BiophilicAudioEngine {
 
     noiseSource.connect(lpf);
     lpf.connect(this.breezeGain);
-    this.breezeGain.connect(this.masterGain);
+
+    this.breezePanner = this.ctx.createStereoPanner();
+    this.breezeGain.connect(this.breezePanner);
+    this.breezePanner.connect(this.masterGain);
 
     noiseSource.start();
     lfo.start();
@@ -302,7 +312,10 @@ class BiophilicAudioEngine {
 
     noiseSource.connect(bpf);
     bpf.connect(this.rainGain);
-    this.rainGain.connect(this.masterGain);
+
+    this.rainPanner = this.ctx.createStereoPanner();
+    this.rainGain.connect(this.rainPanner);
+    this.rainPanner.connect(this.masterGain);
 
     noiseSource.start();
     this.noiseNodes.push(noiseSource);
@@ -335,11 +348,45 @@ class BiophilicAudioEngine {
     noiseSource.connect(lpf);
     lpf.connect(waveGain);
     waveGain.connect(this.oceanGain);
-    this.oceanGain.connect(this.masterGain);
+
+    this.oceanPanner = this.ctx.createStereoPanner();
+    this.oceanGain.connect(this.oceanPanner);
+    this.oceanPanner.connect(this.masterGain);
 
     noiseSource.start();
     lfo.start();
     this.noiseNodes.push(noiseSource, lfo);
+  }
+
+  // 2D Spatial Positioning: Pan (-1 to 1) and Distance Attenuation (0 to 1)
+  public setLayerSpatialPosition(id: ContinuousLayerId, pan: number, distanceFactor = 1.0) {
+    if (!this.ctx) return;
+    const clampedPan = Math.max(-1, Math.min(1, pan));
+    let panner: StereoPannerNode | null = null;
+    let gainNode: GainNode | null = null;
+
+    switch (id) {
+      case 'water':
+        panner = this.waterPanner;
+        gainNode = this.waterGain;
+        break;
+      case 'breeze':
+        panner = this.breezePanner;
+        gainNode = this.breezeGain;
+        break;
+      case 'rain':
+        panner = this.rainPanner;
+        gainNode = this.rainGain;
+        break;
+      case 'ocean':
+        panner = this.oceanPanner;
+        gainNode = this.oceanGain;
+        break;
+    }
+
+    if (panner && this.ctx.state === 'running') {
+      panner.pan.setTargetAtTime(clampedPan, this.ctx.currentTime, 0.05);
+    }
   }
 
   // --- Stochastic Foreground Events ---

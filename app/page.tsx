@@ -8,6 +8,8 @@ import { CircadianTimelineView } from '@/components/CircadianTimelineView';
 import { HardwareTopologyView } from '@/components/HardwareTopologyView';
 import { AiAdvisorView } from '@/components/AiAdvisorView';
 import { DeploymentIntegrationView } from '@/components/DeploymentIntegrationView';
+import { SpatialStudioView } from '@/components/SpatialStudioView';
+import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
 import { CIRCADIAN_PHASES, getPhaseForHour, CircadianPhase, SocialPreset } from '@/lib/circadian-data';
@@ -343,6 +345,24 @@ export default function Home() {
     }
   };
 
+  // Spatial Preset Apply Handler
+  const handleApplySpatialPreset = (preset: SoundscapePreset) => {
+    const engine = getAudioEngine();
+    handleConfigChange({ duckingDepthDb: preset.vadDuckingDepthDb });
+
+    const updated = continuousLayers.map((l) => {
+      const vol = preset.layers[l.id] ?? l.volume;
+      const isEnabled = vol > 0.05;
+      engine.setLayerVolume(l.id, vol, isEnabled);
+      return { ...l, volume: vol, enabled: isEnabled };
+    });
+    setContinuousLayers(updated);
+
+    if (!isPlaying) {
+      handleTogglePlay();
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-950 text-stone-100 font-sans selection:bg-emerald-800 selection:text-white">
       {/* Top Bar with Top Bar Contract */}
@@ -369,6 +389,13 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'spatial' && (
+          <SpatialStudioView
+            onApplyPreset={handleApplySpatialPreset}
+            currentLayers={continuousLayers}
           />
         )}
 
