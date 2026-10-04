@@ -194,6 +194,51 @@ class BiophilicAudioEngine {
     return this.adhanSilenceGain.gain.value;
   }
 
+  // --- Active Urban Noise Masking Mode ---
+  public applyUrbanNoiseMask(
+    targetBand: 'low_hvac' | 'mid_traffic' | 'speech_murmur' | 'high_construction' | 'none',
+    intensity = 0.5
+  ) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const scaled = Math.max(0, Math.min(1, intensity));
+
+    switch (targetBand) {
+      case 'low_hvac':
+        // Boost ocean brown noise and deep water bass to counter low humming
+        if (this.oceanGain) this.oceanGain.gain.setTargetAtTime(0.5 + scaled * 0.45, now, 0.4);
+        if (this.waterGain) this.waterGain.gain.setTargetAtTime(0.7, now, 0.4);
+        if (this.rainGain) this.rainGain.gain.setTargetAtTime(0.1, now, 0.4);
+        break;
+      case 'mid_traffic':
+        // Boost canopy breeze and babbling brook body (200-450Hz)
+        if (this.breezeGain) this.breezeGain.gain.setTargetAtTime(0.55 + scaled * 0.4, now, 0.4);
+        if (this.waterGain) this.waterGain.gain.setTargetAtTime(0.75, now, 0.4);
+        if (this.oceanGain) this.oceanGain.gain.setTargetAtTime(0.3, now, 0.4);
+        break;
+      case 'speech_murmur':
+        // Reduce Speech Transmission Index (STI) by boosting pink-noise rain and water stream
+        if (this.rainGain) this.rainGain.gain.setTargetAtTime(0.4 + scaled * 0.45, now, 0.4);
+        if (this.waterGain) this.waterGain.gain.setTargetAtTime(0.85, now, 0.4);
+        if (this.breezeGain) this.breezeGain.gain.setTargetAtTime(0.45, now, 0.4);
+        break;
+      case 'high_construction':
+        // Mask sharp metallic/drilling noise with dense rain droplet and breeze mask
+        if (this.rainGain) this.rainGain.gain.setTargetAtTime(0.6 + scaled * 0.35, now, 0.4);
+        if (this.breezeGain) this.breezeGain.gain.setTargetAtTime(0.7, now, 0.4);
+        if (this.waterGain) this.waterGain.gain.setTargetAtTime(0.6, now, 0.4);
+        break;
+      case 'none':
+      default:
+        // Restore standard balance
+        if (this.waterGain) this.waterGain.gain.setTargetAtTime(0.65, now, 0.5);
+        if (this.breezeGain) this.breezeGain.gain.setTargetAtTime(0.5, now, 0.5);
+        if (this.rainGain) this.rainGain.gain.setTargetAtTime(0.0, now, 0.5);
+        if (this.oceanGain) this.oceanGain.gain.setTargetAtTime(0.0, now, 0.5);
+        break;
+    }
+  }
+
   // --- Procedural Continuous Layers ---
   private createPinkNoiseBuffer(): AudioBuffer {
     if (!this.ctx) throw new Error('No context');

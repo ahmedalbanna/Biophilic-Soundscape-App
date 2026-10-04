@@ -26,12 +26,12 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'masking', labelAr: 'قناع الضوضاء', labelEn: 'Noise Masking' },
     { id: 'biofeedback', labelAr: 'التنفس والنبض', labelEn: 'Biofeedback & Breath' },
     { id: 'spatial', labelAr: 'التوزيع الفراغي', labelEn: '2D Spatial' },
     { id: 'weather_prayer', labelAr: 'الطقس والصلوات', labelEn: 'Weather & Prayers' },
     { id: 'vad', labelAr: 'كشف الكلام VAD', labelEn: 'Speech & Ducking' },
     { id: 'circadian', labelAr: 'الدورة اليومية', labelEn: 'Circadian Rhythm' },
-    { id: 'hardware', labelAr: 'بنية العتاد', labelEn: 'Hardware & Zones' },
     { id: 'deployment', labelAr: 'النشر وHome Assistant', labelEn: 'Deployment & HA' },
   ];
 
