@@ -14,6 +14,7 @@ import { BiofeedbackBreathingView } from '@/components/BiofeedbackBreathingView'
 import { UrbanNoiseMaskingView } from '@/components/UrbanNoiseMaskingView';
 import { SnapcastMediaOverlayView } from '@/components/SnapcastMediaOverlayView';
 import { CustomSoundbankStudioView } from '@/components/CustomSoundbankStudioView';
+import { RegionalBiomesView } from '@/components/RegionalBiomesView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -410,6 +411,14 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'regional' && (
+          <RegionalBiomesView
+            onEngineStartRequest={handleTogglePlay}
+            isEnginePlaying={isPlaying}
+            onLayerChange={handleLayerChange}
           />
         )}
 

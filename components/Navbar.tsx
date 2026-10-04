@@ -26,6 +26,7 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'regional', labelAr: 'الحزم البيئية', labelEn: 'Regional Biomes' },
     { id: 'soundbank', labelAr: 'مستودع التسجيلات', labelEn: 'Soundbank FLAC' },
     { id: 'snapcast', labelAr: 'التلاوات والغرف', labelEn: 'Snapcast & Media' },
     { id: 'masking', labelAr: 'قناع الضوضاء', labelEn: 'Noise Masking' },

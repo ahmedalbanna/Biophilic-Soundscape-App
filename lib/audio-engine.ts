@@ -168,6 +168,29 @@ class BiophilicAudioEngine {
     }
   }
 
+  public setLayerPan(id: ContinuousLayerId, pan: number) {
+    if (!this.ctx) return;
+    const clamped = Math.max(-1, Math.min(1, pan));
+    let panner: StereoPannerNode | null = null;
+    switch (id) {
+      case 'water':
+        panner = this.waterPanner;
+        break;
+      case 'breeze':
+        panner = this.breezePanner;
+        break;
+      case 'rain':
+        panner = this.rainPanner;
+        break;
+      case 'ocean':
+        panner = this.oceanPanner;
+        break;
+    }
+    if (panner) {
+      panner.pan.setTargetAtTime(clamped, this.ctx.currentTime, 0.1);
+    }
+  }
+
   private getLayerGainNode(id: ContinuousLayerId): GainNode | null {
     switch (id) {
       case 'water':
