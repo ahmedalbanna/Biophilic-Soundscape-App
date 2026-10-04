@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
+import { PWAInstallButton } from '@/components/PWAInstallButton';
 
 interface NavbarProps {
   activeTab: string;
@@ -26,6 +27,7 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'kiosk', labelAr: 'لوحة الحائط', labelEn: 'Wall Kiosk' },
     { id: 'regional', labelAr: 'الحزم البيئية', labelEn: 'Regional Biomes' },
     { id: 'soundbank', labelAr: 'مستودع التسجيلات', labelEn: 'Soundbank FLAC' },
     { id: 'snapcast', labelAr: 'التلاوات والغرف', labelEn: 'Snapcast & Media' },
@@ -100,6 +102,9 @@ export function Navbar({
               {isMuted ? '0%' : `${Math.round(masterVolume * 100)}%`}
             </span>
           </div>
+
+          {/* PWA Install Button */}
+          <PWAInstallButton />
 
           {/* Master Play/Pause Toggle */}
           <button

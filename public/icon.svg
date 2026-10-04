@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b" />
+      <stop offset="50%" stop-color="#022c22" />
+      <stop offset="100%" stop-color="#0c0a09" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.8" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background with rounded corners for squircle maskable safe zone -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+
+  <!-- Outer acoustic rings -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#059669" stroke-width="3" stroke-opacity="0.25" stroke-dasharray="8 8" />
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#10b981" stroke-width="4" stroke-opacity="0.35" />
+  <circle cx="256" cy="256" r="130" fill="none" stroke="#34d399" stroke-width="5" stroke-opacity="0.45" />
+
+  <!-- Center Biophilic Leaf Shape -->
+  <path d="M256,120 C330,120 370,180 360,270 C350,340 300,380 256,392 C212,380 162,340 152,270 C142,180 182,120 256,120 Z" fill="url(#leafGrad)" />
+
+  <!-- Leaf Central Stem -->
+  <path d="M256,140 Q256,260 256,380" fill="none" stroke="#064e3b" stroke-width="8" stroke-linecap="round" />
+
+  <!-- Side Leaf Veins / Sound Waves -->
+  <path d="M256,200 Q285,190 310,210" fill="none" stroke="#064e3b" stroke-width="5" stroke-linecap="round" />
+  <path d="M256,240 Q225,230 200,250" fill="none" stroke="#064e3b" stroke-width="5" stroke-linecap="round" />
+  <path d="M256,280 Q285,270 310,290" fill="none" stroke="#064e3b" stroke-width="5" stroke-linecap="round" />
+  <path d="M256,320 Q230,310 205,330" fill="none" stroke="#064e3b" stroke-width="5" stroke-linecap="round" />
+
+  <!-- Acoustic ripple sine wave at bottom -->
+  <path d="M140,430 Q198,405 256,430 T372,430" fill="none" stroke="url(#waveGrad)" stroke-width="8" stroke-linecap="round" />
+</svg>

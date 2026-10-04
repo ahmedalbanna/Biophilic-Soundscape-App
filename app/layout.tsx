@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans, Tajawal } from 'next/font/google';
 import './globals.css';
 
@@ -16,10 +16,25 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: 'swap',
 });
 
+export const viewport: Viewport = {
+  themeColor: '#0c0a09',
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: 'Biophilic Soundscape | نظام البيئة الصوتية الحيوية والتكيفية',
   description:
     'نظام ذكي متكامل للمنازل العصرية يحول البيت إلى بيئة صوتية حيوية متفاعلة مع فترات اليوم، بتقنية التراكب الديناميكي وكشف الكلام (VAD) والتنظيم الذكي لمستوى الصوت وتوزيع الغرف المتعددة.',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Biophilic',
+  },
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     title: 'Biophilic Soundscape | نظام البيئة الصوتية الحيوية',
     description:
