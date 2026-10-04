@@ -37,6 +37,7 @@ class BiophilicAudioEngine {
   private isRunning = false;
   private masterGain: GainNode | null = null;
   private duckingGain: GainNode | null = null;
+  private adhanSilenceGain: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
 
   // Background layers
@@ -74,14 +75,19 @@ class BiophilicAudioEngine {
     this.duckingGain = this.ctx.createGain();
     this.duckingGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
 
+    // Adhan & Prayer silence protection node
+    this.adhanSilenceGain = this.ctx.createGain();
+    this.adhanSilenceGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+
     // Master Analyser for UI visualizers
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 512;
     this.analyser.smoothingTimeConstant = 0.85;
 
-    // Connect bus: Master -> Ducking -> Analyser -> Output
+    // Connect bus: Master -> Ducking -> AdhanSilence -> Analyser -> Output
     this.masterGain.connect(this.duckingGain);
-    this.duckingGain.connect(this.analyser);
+    this.duckingGain.connect(this.adhanSilenceGain);
+    this.adhanSilenceGain.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
 
     // Build Continuous Generators
@@ -172,6 +178,18 @@ class BiophilicAudioEngine {
 
   public isCurrentlyDucked(): boolean {
     return this.isDucked;
+  }
+
+  // --- Adhan & Prayer Silence Protection ---
+  public setAdhanSilence(inSilence: boolean, fadeSec = 4) {
+    if (!this.ctx || !this.adhanSilenceGain) return;
+    const target = inSilence ? 0.0001 : 1.0;
+    this.adhanSilenceGain.gain.setTargetAtTime(target, this.ctx.currentTime, Math.max(0.1, fadeSec / 3));
+  }
+
+  public getAdhanSilenceEnvelope(): number {
+    if (!this.adhanSilenceGain) return 1.0;
+    return this.adhanSilenceGain.gain.value;
   }
 
   // --- Procedural Continuous Layers ---

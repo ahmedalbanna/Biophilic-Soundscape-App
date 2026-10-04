@@ -9,6 +9,7 @@ import { HardwareTopologyView } from '@/components/HardwareTopologyView';
 import { AiAdvisorView } from '@/components/AiAdvisorView';
 import { DeploymentIntegrationView } from '@/components/DeploymentIntegrationView';
 import { SpatialStudioView } from '@/components/SpatialStudioView';
+import { WeatherPrayerSyncView } from '@/components/WeatherPrayerSyncView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -363,6 +364,22 @@ export default function Home() {
     }
   };
 
+  // Weather Adaptation Apply Handler
+  const handleApplyWeatherMix = (layers: { water: number; breeze: number; rain: number; ocean: number }) => {
+    const engine = getAudioEngine();
+    const updated = continuousLayers.map((l) => {
+      const vol = layers[l.id] ?? l.volume;
+      const isEnabled = vol > 0.05;
+      engine.setLayerVolume(l.id, vol, isEnabled);
+      return { ...l, volume: vol, enabled: isEnabled };
+    });
+    setContinuousLayers(updated);
+
+    if (!isPlaying) {
+      handleTogglePlay();
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-950 text-stone-100 font-sans selection:bg-emerald-800 selection:text-white">
       {/* Top Bar with Top Bar Contract */}
@@ -396,6 +413,13 @@ export default function Home() {
           <SpatialStudioView
             onApplyPreset={handleApplySpatialPreset}
             currentLayers={continuousLayers}
+          />
+        )}
+
+        {activeTab === 'weather_prayer' && (
+          <WeatherPrayerSyncView
+            onApplyWeatherMix={handleApplyWeatherMix}
+            isEnginePlaying={isPlaying}
           />
         )}
 
