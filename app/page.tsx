@@ -19,6 +19,7 @@ import { WallKioskModeView } from '@/components/WallKioskModeView';
 import { CircadianLightingSyncView } from '@/components/CircadianLightingSyncView';
 import { CircadianSunriseAlarmView } from '@/components/CircadianSunriseAlarmView';
 import { AutomatedRoomCalibrationView } from '@/components/AutomatedRoomCalibrationView';
+import { HardwareSatellitesView } from '@/components/HardwareSatellitesView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -415,6 +416,13 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'satellites' && (
+          <HardwareSatellitesView
+            onEngineStartRequest={handleTogglePlay}
+            isEnginePlaying={isPlaying}
           />
         )}
 
