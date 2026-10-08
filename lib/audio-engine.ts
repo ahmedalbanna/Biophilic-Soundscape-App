@@ -1112,6 +1112,206 @@ class BiophilicAudioEngine {
     }
   }
 
+  // 5. Hoopoe Rhythmic Pulse Call (الهدهد المهلل: هوب-هوب-هوب)
+  public triggerHoopoeCall(force = false) {
+    if (!this.ctx || !this.masterGain) return;
+    if (!force && !this.isRunning) return;
+
+    const now = this.ctx.currentTime;
+    const baseFreq = 480 + Math.random() * 20;
+
+    // 3 rhythmic pulses spaced 180ms apart
+    for (let i = 0; i < 3; i++) {
+      const pulseTime = now + i * 0.18;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(baseFreq, pulseTime);
+      osc.frequency.linearRampToValueAtTime(baseFreq - 15, pulseTime + 0.12);
+
+      gain.gain.setValueAtTime(0.0001, pulseTime);
+      gain.gain.linearRampToValueAtTime(0.08, pulseTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, pulseTime + 0.15);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(pulseTime);
+      osc.stop(pulseTime + 0.16);
+    }
+  }
+
+  // 6. Turtle Dove Warm Coo (هديل حمام القمري)
+  public triggerTurtleDoveCoo(force = false) {
+    if (!this.ctx || !this.masterGain) return;
+    if (!force && !this.isRunning) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const pan = this.ctx.createStereoPanner();
+
+    pan.pan.value = Math.random() * 1.2 - 0.6;
+    osc.type = 'sine';
+    // Gentle throat coo from 560Hz gliding down to 480Hz
+    osc.frequency.setValueAtTime(540, now);
+    osc.frequency.linearRampToValueAtTime(560, now + 0.15);
+    osc.frequency.exponentialRampToValueAtTime(470, now + 0.7);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.07, now + 0.12);
+    gain.gain.linearRampToValueAtTime(0.05, now + 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+
+    osc.connect(gain);
+    gain.connect(pan);
+    pan.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.9);
+  }
+
+  // 7. Shimmering Night Crickets (صراصير الليل وجداجد الحقول)
+  public triggerNightCrickets(force = false) {
+    if (!this.ctx || !this.masterGain) return;
+    if (!force && !this.isRunning) return;
+
+    const now = this.ctx.currentTime;
+    const carrier = this.ctx.createOscillator();
+    const mod = this.ctx.createOscillator();
+    const modGain = this.ctx.createGain();
+    const env = this.ctx.createGain();
+
+    carrier.type = 'sine';
+    carrier.frequency.value = 4750 + Math.random() * 200;
+
+    mod.type = 'sawtooth';
+    mod.frequency.value = 38; // fast high-frequency AM flutter
+    modGain.gain.value = 280;
+
+    mod.connect(modGain);
+    modGain.connect(carrier.frequency);
+
+    env.gain.setValueAtTime(0.0001, now);
+    env.gain.linearRampToValueAtTime(0.035, now + 0.08);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+
+    carrier.connect(env);
+    env.connect(this.masterGain);
+
+    carrier.start(now);
+    mod.start(now);
+    carrier.stop(now + 0.7);
+    mod.stop(now + 0.7);
+  }
+
+  // 8. Traditional Brass Coffee Mortar Resonator (دقات النجر النحاسي وإعداد القهوة)
+  public triggerCoffeeNejir(force = false) {
+    if (!this.ctx || !this.masterGain) return;
+    if (!force && !this.isRunning) return;
+
+    const now = this.ctx.currentTime;
+    const oscFundamental = this.ctx.createOscillator();
+    const oscHarmonic = this.ctx.createOscillator();
+    const hitGain = this.ctx.createGain();
+    const pan = this.ctx.createStereoPanner();
+
+    pan.pan.value = Math.random() * 0.8 - 0.4;
+
+    // Resonant brass strike: Fundamental at 980Hz, overtone at 2420Hz
+    oscFundamental.type = 'sine';
+    oscFundamental.frequency.setValueAtTime(980, now);
+    oscHarmonic.type = 'sine';
+    oscHarmonic.frequency.setValueAtTime(2420, now);
+
+    const harmGain = this.ctx.createGain();
+    harmGain.gain.setValueAtTime(0.35, now);
+    oscHarmonic.connect(harmGain);
+    harmGain.connect(hitGain);
+
+    oscFundamental.connect(hitGain);
+    hitGain.connect(pan);
+    pan.connect(this.masterGain);
+
+    // Sharp metallic impact followed by warm brass decay (2.2s)
+    hitGain.gain.setValueAtTime(0.0001, now);
+    hitGain.gain.linearRampToValueAtTime(0.18, now + 0.015);
+    hitGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+
+    oscFundamental.start(now);
+    oscHarmonic.start(now);
+    oscFundamental.stop(now + 2.3);
+    oscHarmonic.stop(now + 2.3);
+  }
+
+  // 9. Incense Ember Crackle & Oud (جمر المبخرة والعود وتفرقع اللبان)
+  public triggerIncenseEmber(force = false) {
+    if (!this.ctx || !this.masterGain) return;
+    if (!force && !this.isRunning) return;
+
+    const now = this.ctx.currentTime;
+    const noiseBuffer = this.createPinkNoiseBuffer();
+    const source = this.ctx.createBufferSource();
+    source.buffer = noiseBuffer;
+
+    const bpf = this.ctx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = 2200 + Math.random() * 800;
+    bpf.Q.value = 5.0;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.06, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+    source.connect(bpf);
+    bpf.connect(gain);
+    gain.connect(this.masterGain);
+
+    source.start(now);
+    source.stop(now + 0.1);
+  }
+
+  // 10. Distant Desert Caravan Chime (أجراس الإبل والقوافل في السكون)
+  public triggerDesertCaravanBell(force = false) {
+    if (!this.ctx || !this.masterGain) return;
+    if (!force && !this.isRunning) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const oscHarm = this.ctx.createOscillator();
+    const bellGain = this.ctx.createGain();
+    const pan = this.ctx.createStereoPanner();
+
+    pan.pan.value = Math.random() * 1.4 - 0.7;
+
+    // Deep resonant copper/brass bell at 340Hz
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(340, now);
+
+    oscHarm.type = 'sine';
+    oscHarm.frequency.setValueAtTime(340 * 2.38, now);
+
+    const harmGain = this.ctx.createGain();
+    harmGain.gain.setValueAtTime(0.25, now);
+    oscHarm.connect(harmGain);
+    harmGain.connect(bellGain);
+
+    osc.connect(bellGain);
+    bellGain.connect(pan);
+    pan.connect(this.masterGain);
+
+    bellGain.gain.setValueAtTime(0.0001, now);
+    bellGain.gain.linearRampToValueAtTime(0.12, now + 0.04);
+    bellGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.4);
+
+    osc.start(now);
+    oscHarm.start(now);
+    osc.stop(now + 3.5);
+    oscHarm.stop(now + 3.5);
+  }
+
   public destroy() {
     this.intervals.forEach((i) => clearInterval(i));
     this.intervals = [];
