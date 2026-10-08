@@ -24,6 +24,7 @@ export interface StochasticLayerState {
 
 import { RoomEqBand } from './room-calibration';
 import { BrainwaveBandId, EntrainmentMode } from './neuro-entrainment';
+import { CalmingProfileId, CALMING_PROFILES } from './acoustic-stress-relief';
 
 export interface AcousticEventLog {
   id: string;
@@ -89,6 +90,17 @@ class BiophilicAudioEngine {
     mode: 'hybrid',
     intensity: 0.35,
   };
+
+  // Acoustic Stress Auto-Relief & Noise Calming Nodes
+  private stressSofteningFilter: BiquadFilterNode | null = null;
+  private calmingReliefBusGain: GainNode | null = null;
+  private calmingGroundingOsc: OscillatorNode | null = null;
+  private calmingPacerGain: GainNode | null = null;
+  private calmingPacerNoiseSource: AudioBufferSourceNode | null = null;
+  private calmingPacerTimer: NodeJS.Timeout | null = null;
+  private isAcousticStressActive = false;
+  private activeCalmingProfile: CalmingProfileId = 'coherence_ocean';
+  private calmingBreathStep = 0; // 0..9 representing second in 10s cycle
 
   // Custom FLAC & Hi-Res Soundbank Slots
   private customSlots: Map<
@@ -157,7 +169,13 @@ class BiophilicAudioEngine {
     this.eqFilters[4].type = 'highshelf';
     this.eqFilters[4].frequency.setValueAtTime(8000, this.ctx.currentTime);
 
-    // Connect bus: Master -> Ducking -> AdhanSilence -> EQ[0..4] -> Analyser -> Output
+    // Psychoacoustic Stress Softening Filter (dynamic high-frequency absorption)
+    this.stressSofteningFilter = this.ctx.createBiquadFilter();
+    this.stressSofteningFilter.type = 'lowpass';
+    this.stressSofteningFilter.frequency.setValueAtTime(20000, this.ctx.currentTime);
+    this.stressSofteningFilter.Q.setValueAtTime(0.707, this.ctx.currentTime);
+
+    // Connect bus: Master -> Ducking -> AdhanSilence -> EQ[0..4] -> Softening Filter -> Analyser -> Output
     this.masterGain.connect(this.duckingGain);
     this.duckingGain.connect(this.adhanSilenceGain);
 
@@ -166,7 +184,8 @@ class BiophilicAudioEngine {
       lastNode.connect(eqNode);
       lastNode = eqNode;
     }
-    lastNode.connect(this.analyser);
+    lastNode.connect(this.stressSofteningFilter);
+    this.stressSofteningFilter.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
 
     // Media & Recitation Overlay Gain (connects into AdhanSilence so it respects prayer windows)
@@ -178,6 +197,11 @@ class BiophilicAudioEngine {
     this.entrainmentBusGain = this.ctx.createGain();
     this.entrainmentBusGain.gain.setValueAtTime(0, this.ctx.currentTime);
     this.entrainmentBusGain.connect(this.adhanSilenceGain);
+
+    // Acoustic Stress Auto-Relief Calming Bus
+    this.calmingReliefBusGain = this.ctx.createGain();
+    this.calmingReliefBusGain.gain.setValueAtTime(0, this.ctx.currentTime);
+    this.calmingReliefBusGain.connect(this.adhanSilenceGain);
 
     // Build Continuous Generators
     this.setupWaterLayer();
@@ -602,6 +626,159 @@ class BiophilicAudioEngine {
 
   public getNeuroEntrainmentState() {
     return { ...this.entrainmentState };
+  }
+
+  // --- Acoustic Stress Auto-Relief & Noise Calming Engine ---
+  public startAcousticStressIntervention(
+    profileId: CalmingProfileId = 'coherence_ocean',
+    volume = 0.85
+  ) {
+    if (!this.ctx) this.init();
+    if (!this.ctx || !this.calmingReliefBusGain) return;
+    const now = this.ctx.currentTime;
+
+    this.stopAcousticStressIntervention(0.2);
+
+    this.isAcousticStressActive = true;
+    this.activeCalmingProfile = profileId;
+    const profile = CALMING_PROFILES[profileId] || CALMING_PROFILES.coherence_ocean;
+
+    // 1. Engage Psychoacoustic Frequency Softening Filter
+    if (this.stressSofteningFilter) {
+      this.stressSofteningFilter.frequency.cancelScheduledValues(now);
+      this.stressSofteningFilter.frequency.setTargetAtTime(profile.lowpassCutoffHz, now, 0.25);
+    }
+
+    // 2. Fade in Calming Bus
+    this.calmingReliefBusGain.gain.cancelScheduledValues(now);
+    this.calmingReliefBusGain.gain.setValueAtTime(0, now);
+    this.calmingReliefBusGain.gain.linearRampToValueAtTime(
+      Math.max(0.1, Math.min(1.0, volume * 0.5)),
+      now + 0.8
+    );
+
+    // 3. Grounding Carrier Tone (e.g. 108Hz, 128Hz, 136.1Hz)
+    try {
+      this.calmingGroundingOsc = this.ctx.createOscillator();
+      this.calmingGroundingOsc.type = 'sine';
+      this.calmingGroundingOsc.frequency.setValueAtTime(profile.carrierHz, now);
+
+      const groundGain = this.ctx.createGain();
+      groundGain.gain.setValueAtTime(0.18, now);
+
+      this.calmingGroundingOsc.connect(groundGain);
+      groundGain.connect(this.calmingReliefBusGain);
+      this.calmingGroundingOsc.start(now);
+    } catch {
+      // Safe handle
+    }
+
+    // 4. Synthesize Cardiorespiratory Coherence Breath Modulation (6 BPM / 0.1 Hz)
+    try {
+      const bufferSize = this.ctx.sampleRate * 2;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.08;
+        b6 = white * 0.115926;
+      }
+
+      this.calmingPacerNoiseSource = this.ctx.createBufferSource();
+      this.calmingPacerNoiseSource.buffer = buffer;
+      this.calmingPacerNoiseSource.loop = true;
+
+      const pacerLpf = this.ctx.createBiquadFilter();
+      pacerLpf.type = 'lowpass';
+      pacerLpf.frequency.setValueAtTime(800, now);
+
+      this.calmingPacerGain = this.ctx.createGain();
+      this.calmingPacerGain.gain.setValueAtTime(0.2, now);
+
+      this.calmingPacerNoiseSource.connect(pacerLpf);
+      pacerLpf.connect(this.calmingPacerGain);
+      this.calmingPacerGain.connect(this.calmingReliefBusGain);
+      this.calmingPacerNoiseSource.start(now);
+
+      this.calmingBreathStep = 0;
+      if (this.calmingPacerTimer) clearInterval(this.calmingPacerTimer);
+      this.calmingPacerTimer = setInterval(() => {
+        if (!this.ctx || !this.isAcousticStressActive || !this.calmingPacerGain) return;
+        this.calmingBreathStep = (this.calmingBreathStep + 1) % 10;
+        const cTime = this.ctx.currentTime;
+        if (this.calmingBreathStep < 4) {
+          const ratio = (this.calmingBreathStep + 1) / 4;
+          this.calmingPacerGain.gain.setTargetAtTime(0.2 + ratio * 0.55, cTime, 0.4);
+        } else {
+          const ratio = (this.calmingBreathStep - 3) / 6;
+          this.calmingPacerGain.gain.setTargetAtTime(0.75 - ratio * 0.55, cTime, 0.5);
+        }
+      }, 1000);
+    } catch {
+      // Safe fallback
+    }
+  }
+
+  public stopAcousticStressIntervention(fadeSec = 2.5) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    if (this.calmingReliefBusGain) {
+      this.calmingReliefBusGain.gain.cancelScheduledValues(now);
+      this.calmingReliefBusGain.gain.linearRampToValueAtTime(0, now + fadeSec);
+    }
+
+    if (this.stressSofteningFilter) {
+      this.stressSofteningFilter.frequency.cancelScheduledValues(now);
+      this.stressSofteningFilter.frequency.setTargetAtTime(20000, now, fadeSec * 0.8);
+    }
+
+    if (this.calmingPacerTimer) {
+      clearInterval(this.calmingPacerTimer);
+      this.calmingPacerTimer = null;
+    }
+
+    setTimeout(() => {
+      try {
+        if (this.calmingGroundingOsc) {
+          this.calmingGroundingOsc.stop();
+          this.calmingGroundingOsc.disconnect();
+          this.calmingGroundingOsc = null;
+        }
+        if (this.calmingPacerNoiseSource) {
+          this.calmingPacerNoiseSource.stop();
+          this.calmingPacerNoiseSource.disconnect();
+          this.calmingPacerNoiseSource = null;
+        }
+      } catch {
+        // Safe disposal
+      }
+      this.isAcousticStressActive = false;
+    }, fadeSec * 1000 + 100);
+  }
+
+  public isAcousticStressActiveNow(): boolean {
+    return this.isAcousticStressActive;
+  }
+
+  public getActiveCalmingProfile(): CalmingProfileId {
+    return this.activeCalmingProfile;
+  }
+
+  public setStressSofteningCutoff(cutoffHz: number) {
+    if (!this.ctx || !this.stressSofteningFilter) return;
+    this.stressSofteningFilter.frequency.setTargetAtTime(
+      Math.max(1200, Math.min(20000, cutoffHz)),
+      this.ctx.currentTime,
+      0.15
+    );
   }
 
   // --- Active Urban Noise Masking Mode ---

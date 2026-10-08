@@ -3,6 +3,7 @@
 // and simulation controls for the Biophilic Soundscape.
 
 import { getAudioEngine } from './audio-engine';
+import { getStressReliefManager } from './acoustic-stress-relief';
 
 export interface VadConfig {
   sensitivityThresholdDb: number; // e.g. -40 dB
@@ -163,6 +164,7 @@ export class VadManager {
       let sumEnergy = 0;
       let speechBandEnergy = 0;
       let speechBinCount = 0;
+      let highFreqEnergy = 0;
 
       for (let i = 0; i < dataArray.length; i++) {
         const freq = i * binWidth;
@@ -173,6 +175,9 @@ export class VadManager {
           speechBandEnergy += linear;
           speechBinCount++;
         }
+        if (freq >= 3400) {
+          highFreqEnergy += linear;
+        }
       }
 
       const avgDb = 10 * Math.log10(Math.max(1e-9, sumEnergy / dataArray.length));
@@ -180,6 +185,9 @@ export class VadManager {
 
       const speechRatio = speechBinCount > 0 ? speechBandEnergy / Math.max(1e-9, sumEnergy) : 0;
       this.currentSpeechScore = Math.min(100, Math.round(speechRatio * 120));
+
+      const harshnessRatio = sumEnergy > 0 ? highFreqEnergy / sumEnergy : 0.2;
+      getStressReliefManager().feedAcousticData(this.currentDb, harshnessRatio);
 
       // Voice Activity Condition:
       // 1. RMS level exceeds sensitivity threshold (e.g. -42 dB)
