@@ -27,6 +27,7 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'hvac_iaq', labelAr: 'تكييف الهواء وجودة البيئة', labelEn: 'HVAC & IAQ Sync' },
     { id: 'stress_relief', labelAr: 'تسكين التوتر والصخب', labelEn: 'Stress Auto-Relief' },
     { id: 'neuro_sync', labelAr: 'التحفيز العصبي والدماغ', labelEn: 'Neuro Sync & Daemon' },
     { id: 'fauna_rituals', labelAr: 'الطيور والطقوس والتطوير', labelEn: 'Fauna & Rituals' },

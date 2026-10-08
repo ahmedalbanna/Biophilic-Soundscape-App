@@ -25,6 +25,7 @@ export interface StochasticLayerState {
 import { RoomEqBand } from './room-calibration';
 import { BrainwaveBandId, EntrainmentMode } from './neuro-entrainment';
 import { CalmingProfileId, CALMING_PROFILES } from './acoustic-stress-relief';
+import { HvacFanSpeed, HVAC_MASKING_FLAVORS, IAQ_BIOPHILIC_PROFILES } from './hvac-iaq-sync';
 
 export interface AcousticEventLog {
   id: string;
@@ -102,6 +103,13 @@ class BiophilicAudioEngine {
   private activeCalmingProfile: CalmingProfileId = 'coherence_ocean';
   private calmingBreathStep = 0; // 0..9 representing second in 10s cycle
 
+  // Adaptive HVAC Masking & IAQ Sync Nodes
+  private hvacNotchFilter: BiquadFilterNode | null = null;
+  private hvacMaskingBusGain: GainNode | null = null;
+  private isHvacAdaptiveActive = false;
+  private currentHvacSpeed: HvacFanSpeed = 'normal_med';
+  private currentHvacFlavorId = 'marble_fountain_aflaj';
+
   // Custom FLAC & Hi-Res Soundbank Slots
   private customSlots: Map<
     string,
@@ -175,7 +183,13 @@ class BiophilicAudioEngine {
     this.stressSofteningFilter.frequency.setValueAtTime(20000, this.ctx.currentTime);
     this.stressSofteningFilter.Q.setValueAtTime(0.707, this.ctx.currentTime);
 
-    // Connect bus: Master -> Ducking -> AdhanSilence -> EQ[0..4] -> Softening Filter -> Analyser -> Output
+    // Adaptive HVAC Anti-Rumble Notch Filter (50-120Hz compressor resonance neutralization)
+    this.hvacNotchFilter = this.ctx.createBiquadFilter();
+    this.hvacNotchFilter.type = 'notch';
+    this.hvacNotchFilter.frequency.setValueAtTime(60, this.ctx.currentTime);
+    this.hvacNotchFilter.Q.setValueAtTime(3.5, this.ctx.currentTime);
+
+    // Connect bus: Master -> Ducking -> AdhanSilence -> EQ[0..4] -> HVAC Notch -> Softening Filter -> Analyser -> Output
     this.masterGain.connect(this.duckingGain);
     this.duckingGain.connect(this.adhanSilenceGain);
 
@@ -184,7 +198,8 @@ class BiophilicAudioEngine {
       lastNode.connect(eqNode);
       lastNode = eqNode;
     }
-    lastNode.connect(this.stressSofteningFilter);
+    lastNode.connect(this.hvacNotchFilter);
+    this.hvacNotchFilter.connect(this.stressSofteningFilter);
     this.stressSofteningFilter.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
 
@@ -202,6 +217,11 @@ class BiophilicAudioEngine {
     this.calmingReliefBusGain = this.ctx.createGain();
     this.calmingReliefBusGain.gain.setValueAtTime(0, this.ctx.currentTime);
     this.calmingReliefBusGain.connect(this.adhanSilenceGain);
+
+    // Adaptive HVAC Masking Dedicated Stream Bus
+    this.hvacMaskingBusGain = this.ctx.createGain();
+    this.hvacMaskingBusGain.gain.setValueAtTime(0, this.ctx.currentTime);
+    this.hvacMaskingBusGain.connect(this.adhanSilenceGain);
 
     // Build Continuous Generators
     this.setupWaterLayer();
@@ -824,6 +844,97 @@ class BiophilicAudioEngine {
         if (this.oceanGain) this.oceanGain.gain.setTargetAtTime(0.0, now, 0.5);
         break;
     }
+  }
+
+  // --- Adaptive HVAC Masking & IAQ Sync Engine ---
+  public applyAdaptiveHvacAndIaqMask(
+    speed: HvacFanSpeed = 'normal_med',
+    flavorId = 'marble_fountain_aflaj',
+    iaqProfileId = 'pristine',
+    intensity = 1.0
+  ) {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    this.isHvacAdaptiveActive = true;
+    this.currentHvacSpeed = speed;
+    this.currentHvacFlavorId = flavorId;
+
+    const flavor =
+      HVAC_MASKING_FLAVORS.find((f) => f.id === flavorId) || HVAC_MASKING_FLAVORS[0];
+    const iaq =
+      IAQ_BIOPHILIC_PROFILES[iaqProfileId] || IAQ_BIOPHILIC_PROFILES.pristine;
+
+    // 1. Determine HVAC mechanical intensity scale
+    const speedScaleMap: Record<HvacFanSpeed, number> = {
+      off: 0.05,
+      eco_low: 0.35,
+      normal_med: 0.65,
+      high_cool: 0.85,
+      turbo_boost: 1.0,
+    };
+    const hvacScale = speedScaleMap[speed] ?? 0.65;
+    const effIntensity = Math.max(0.1, Math.min(1.2, intensity));
+
+    // 2. Adjust dynamic anti-rumble notch filter for AC compressor resonance
+    if (this.hvacNotchFilter) {
+      const targetNotchHz = speed === 'off' ? 20 : flavor.notchCutoffHz;
+      this.hvacNotchFilter.frequency.cancelScheduledValues(now);
+      this.hvacNotchFilter.frequency.setTargetAtTime(targetNotchHz, now, 0.3);
+    }
+
+    // 3. Shape biophilic continuous layers to psychoacoustically absorb duct hiss
+    const waterTarget = Math.min(
+      1.0,
+      flavor.waterWeight * (0.35 + hvacScale * 0.55) * iaq.waterModifier * effIntensity
+    );
+    const breezeTarget = Math.min(
+      0.95,
+      flavor.breezeWeight * (0.3 + hvacScale * 0.5) * iaq.breezeModifier * effIntensity
+    );
+    const oceanTarget = Math.min(
+      0.85,
+      flavor.oceanWeight * (0.15 + hvacScale * 0.6) * effIntensity
+    );
+    const rainTarget = Math.min(
+      0.65,
+      flavor.rainWeight * (0.05 + hvacScale * 0.45) * effIntensity
+    );
+    const birdsTarget = Math.min(
+      1.0,
+      (speed === 'off' || speed === 'eco_low' ? 0.75 : 0.38) * iaq.birdsModifier
+    );
+
+    if (this.waterGain) this.waterGain.gain.setTargetAtTime(waterTarget, now, 0.4);
+    if (this.breezeGain) this.breezeGain.gain.setTargetAtTime(breezeTarget, now, 0.4);
+    if (this.oceanGain) this.oceanGain.gain.setTargetAtTime(oceanTarget, now, 0.4);
+    if (this.rainGain) this.rainGain.gain.setTargetAtTime(rainTarget, now, 0.4);
+    if (this.birdsGain) this.birdsGain.gain.setTargetAtTime(birdsTarget, now, 0.5);
+  }
+
+  public stopAdaptiveHvacMask() {
+    this.isHvacAdaptiveActive = false;
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.waterGain) this.waterGain.gain.setTargetAtTime(0.65, now, 0.5);
+    if (this.breezeGain) this.breezeGain.gain.setTargetAtTime(0.5, now, 0.5);
+    if (this.oceanGain) this.oceanGain.gain.setTargetAtTime(0.0, now, 0.5);
+    if (this.rainGain) this.rainGain.gain.setTargetAtTime(0.0, now, 0.5);
+    if (this.birdsGain) this.birdsGain.gain.setTargetAtTime(0.6, now, 0.5);
+    if (this.hvacNotchFilter) {
+      this.hvacNotchFilter.frequency.setTargetAtTime(20, now, 0.5);
+    }
+  }
+
+  public isAdaptiveHvacActiveNow(): boolean {
+    return this.isHvacAdaptiveActive;
+  }
+
+  public setHvacNotchFrequency(freqHz: number) {
+    if (!this.ctx || !this.hvacNotchFilter) return;
+    const clamped = Math.max(30, Math.min(250, freqHz));
+    this.hvacNotchFilter.frequency.setTargetAtTime(clamped, this.ctx.currentTime, 0.1);
   }
 
   // --- Media & Quran Recitation Overlay Routing ---
