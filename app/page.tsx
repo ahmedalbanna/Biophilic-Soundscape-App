@@ -20,6 +20,7 @@ import { CircadianLightingSyncView } from '@/components/CircadianLightingSyncVie
 import { CircadianSunriseAlarmView } from '@/components/CircadianSunriseAlarmView';
 import { AutomatedRoomCalibrationView } from '@/components/AutomatedRoomCalibrationView';
 import { HardwareSatellitesView } from '@/components/HardwareSatellitesView';
+import { AcousticEcologyView } from '@/components/AcousticEcologyView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -416,6 +417,14 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'ecology' && (
+          <AcousticEcologyView
+            onEngineStartRequest={handleTogglePlay}
+            isEnginePlaying={isPlaying}
+            onLayerChange={handleLayerChange}
           />
         )}
 
