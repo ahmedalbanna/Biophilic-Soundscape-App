@@ -27,6 +27,7 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'room_eq', labelAr: 'معايرة الغرفة', labelEn: 'Room EQ' },
     { id: 'alarm', labelAr: 'منبه الفجر والنوم', labelEn: 'Sunrise Alarm' },
     { id: 'lighting', labelAr: 'الإضاءة الحيوية', labelEn: 'Circadian Light' },
     { id: 'kiosk', labelAr: 'لوحة الحائط', labelEn: 'Wall Kiosk' },

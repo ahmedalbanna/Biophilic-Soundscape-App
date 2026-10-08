@@ -22,6 +22,8 @@ export interface StochasticLayerState {
   color: string;
 }
 
+import { RoomEqBand } from './room-calibration';
+
 export interface AcousticEventLog {
   id: string;
   timestamp: string;
@@ -39,6 +41,11 @@ class BiophilicAudioEngine {
   private duckingGain: GainNode | null = null;
   private adhanSilenceGain: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
+
+  // Room EQ Biquad Filter Bank
+  private eqFilters: BiquadFilterNode[] = [];
+  private isEqBypassed = false;
+  private currentEqBands: RoomEqBand[] = [];
 
   // Background layers
   private waterGain: GainNode | null = null;
@@ -105,10 +112,34 @@ class BiophilicAudioEngine {
     this.analyser.fftSize = 512;
     this.analyser.smoothingTimeConstant = 0.85;
 
-    // Connect bus: Master -> Ducking -> AdhanSilence -> Analyser -> Output
+    // Room EQ Calibration 5-band Filter Chain
+    this.eqFilters = [];
+    for (let i = 0; i < 5; i++) {
+      const f = this.ctx.createBiquadFilter();
+      f.gain.setValueAtTime(0, this.ctx.currentTime);
+      this.eqFilters.push(f);
+    }
+    this.eqFilters[0].type = 'lowshelf';
+    this.eqFilters[0].frequency.setValueAtTime(80, this.ctx.currentTime);
+    this.eqFilters[1].type = 'peaking';
+    this.eqFilters[1].frequency.setValueAtTime(250, this.ctx.currentTime);
+    this.eqFilters[2].type = 'peaking';
+    this.eqFilters[2].frequency.setValueAtTime(1000, this.ctx.currentTime);
+    this.eqFilters[3].type = 'peaking';
+    this.eqFilters[3].frequency.setValueAtTime(3500, this.ctx.currentTime);
+    this.eqFilters[4].type = 'highshelf';
+    this.eqFilters[4].frequency.setValueAtTime(8000, this.ctx.currentTime);
+
+    // Connect bus: Master -> Ducking -> AdhanSilence -> EQ[0..4] -> Analyser -> Output
     this.masterGain.connect(this.duckingGain);
     this.duckingGain.connect(this.adhanSilenceGain);
-    this.adhanSilenceGain.connect(this.analyser);
+
+    let lastNode: AudioNode = this.adhanSilenceGain;
+    for (const eqNode of this.eqFilters) {
+      lastNode.connect(eqNode);
+      lastNode = eqNode;
+    }
+    lastNode.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
 
     // Media & Recitation Overlay Gain (connects into AdhanSilence so it respects prayer windows)
@@ -239,6 +270,125 @@ class BiophilicAudioEngine {
   public getAdhanSilenceEnvelope(): number {
     if (!this.adhanSilenceGain) return 1.0;
     return this.adhanSilenceGain.gain.value;
+  }
+
+  // --- Automated Room EQ & Acoustic Calibration ---
+  public applyRoomEq(bands: RoomEqBand[], bypass = false) {
+    if (!this.ctx) this.init();
+    if (!this.ctx || this.eqFilters.length === 0) return;
+    this.currentEqBands = bands;
+    this.isEqBypassed = bypass;
+
+    for (let i = 0; i < this.eqFilters.length; i++) {
+      const filter = this.eqFilters[i];
+      const band = bands[i];
+      if (band) {
+        filter.type = band.type;
+        filter.frequency.setTargetAtTime(band.frequency, this.ctx.currentTime, 0.05);
+        filter.Q.setTargetAtTime(band.q, this.ctx.currentTime, 0.05);
+        const gain = bypass ? 0 : band.gainDb;
+        filter.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.05);
+      } else {
+        filter.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
+      }
+    }
+  }
+
+  public setRoomEqBypass(bypass: boolean) {
+    if (!this.ctx || this.eqFilters.length === 0) return;
+    this.isEqBypassed = bypass;
+    for (let i = 0; i < this.eqFilters.length; i++) {
+      const filter = this.eqFilters[i];
+      const band = this.currentEqBands[i];
+      const targetGain = bypass || !band ? 0 : band.gainDb;
+      filter.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  public getIsEqBypassed(): boolean {
+    return this.isEqBypassed;
+  }
+
+  public async playCalibrationSweep(durationSec = 3.5): Promise<void> {
+    if (!this.ctx) this.init();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      await this.ctx.resume();
+    }
+    if (!this.ctx) return;
+
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const sweepGain = ctx.createGain();
+
+    osc.type = 'sine';
+    // Logarithmic sweep 20 Hz to 16,000 Hz
+    osc.frequency.setValueAtTime(20, now);
+    osc.frequency.exponentialRampToValueAtTime(16000, now + durationSec);
+
+    // Smooth envelope to avoid speaker pops
+    sweepGain.gain.setValueAtTime(0, now);
+    sweepGain.gain.linearRampToValueAtTime(0.28, now + 0.12);
+    sweepGain.gain.setValueAtTime(0.28, now + durationSec - 0.15);
+    sweepGain.gain.linearRampToValueAtTime(0, now + durationSec);
+
+    osc.connect(sweepGain);
+    sweepGain.connect(this.masterGain || ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + durationSec + 0.05);
+
+    return new Promise((resolve) => {
+      setTimeout(resolve, (durationSec + 0.1) * 1000);
+    });
+  }
+
+  public async playPinkNoiseBurst(durationSec = 2.5): Promise<void> {
+    if (!this.ctx) this.init();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      await this.ctx.resume();
+    }
+    if (!this.ctx) return;
+
+    const ctx = this.ctx;
+    const sampleRate = ctx.sampleRate;
+    const bufferSize = sampleRate * durationSec;
+    const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    // Pink Noise algorithm (Kellet filter approximation)
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + white * 0.0555179;
+      b1 = 0.99332 * b1 + white * 0.0750759;
+      b2 = 0.96900 * b2 + white * 0.1538520;
+      b3 = 0.86650 * b3 + white * 0.3104856;
+      b4 = 0.55000 * b4 + white * 0.5329522;
+      b5 = -0.7616 * b5 - white * 0.0168980;
+      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.045;
+      b6 = white * 0.115926;
+    }
+
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = buffer;
+    const gainNode = ctx.createGain();
+
+    const now = ctx.currentTime;
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.22, now + 0.1);
+    gainNode.gain.setValueAtTime(0.22, now + durationSec - 0.15);
+    gainNode.gain.linearRampToValueAtTime(0, now + durationSec);
+
+    noiseSource.connect(gainNode);
+    gainNode.connect(this.masterGain || ctx.destination);
+
+    noiseSource.start(now);
+    noiseSource.stop(now + durationSec + 0.05);
+
+    return new Promise((resolve) => {
+      setTimeout(resolve, (durationSec + 0.1) * 1000);
+    });
   }
 
   // --- Active Urban Noise Masking Mode ---
