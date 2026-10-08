@@ -22,6 +22,7 @@ import { AutomatedRoomCalibrationView } from '@/components/AutomatedRoomCalibrat
 import { HardwareSatellitesView } from '@/components/HardwareSatellitesView';
 import { AcousticEcologyView } from '@/components/AcousticEcologyView';
 import { SmartHomeEcosystemView } from '@/components/SmartHomeEcosystemView';
+import { WearableBiofeedbackView } from '@/components/WearableBiofeedbackView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -418,6 +419,14 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'biofeedback_ble' && (
+          <WearableBiofeedbackView
+            onEngineStartRequest={handleTogglePlay}
+            isEnginePlaying={isPlaying}
+            onLayerChange={handleLayerChange}
           />
         )}
 
