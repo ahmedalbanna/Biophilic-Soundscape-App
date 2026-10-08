@@ -27,6 +27,7 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'offline', labelAr: 'التشغيل بدون نت PWA', labelEn: 'Offline & Cache' },
     { id: 'scorecard', labelAr: 'مؤشرات جودة الحياة', labelEn: 'Wellbeing Scorecard' },
     { id: 'contexts', labelAr: 'سياقات الأسرة والضيافة', labelEn: 'Family Contexts' },
     { id: 'floorplan', labelAr: 'مخطط الفيلا الصوتي', labelEn: 'Villa Plan & Heatmap' },

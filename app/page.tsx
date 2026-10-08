@@ -26,6 +26,7 @@ import { WearableBiofeedbackView } from '@/components/WearableBiofeedbackView';
 import { VillaFloorplanHeatmapView } from '@/components/VillaFloorplanHeatmapView';
 import { FamilySocialContextsView } from '@/components/FamilySocialContextsView';
 import { BiophilicWellbeingScorecardView } from '@/components/BiophilicWellbeingScorecardView';
+import { OfflineStoragePwaView } from '@/components/OfflineStoragePwaView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -423,6 +424,10 @@ export default function Home() {
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
           />
+        )}
+
+        {activeTab === 'offline' && (
+          <OfflineStoragePwaView />
         )}
 
         {activeTab === 'scorecard' && (
