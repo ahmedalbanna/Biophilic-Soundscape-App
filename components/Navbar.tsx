@@ -27,6 +27,7 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'floorplan', labelAr: 'مخطط الفيلا الصوتي', labelEn: 'Villa Plan & Heatmap' },
     { id: 'biofeedback_ble', labelAr: 'النبض والساعات الذكية', labelEn: 'BLE Vitals' },
     { id: 'ecosystems', labelAr: 'المنظومات وأبل هوم', labelEn: 'Ecosystems & Siri' },
     { id: 'ecology', labelAr: 'الطقس والصوت الفراغي', labelEn: 'Ecology & 3D' },
