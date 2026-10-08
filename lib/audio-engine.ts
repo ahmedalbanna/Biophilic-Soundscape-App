@@ -23,6 +23,7 @@ export interface StochasticLayerState {
 }
 
 import { RoomEqBand } from './room-calibration';
+import { BrainwaveBandId, EntrainmentMode } from './neuro-entrainment';
 
 export interface AcousticEventLog {
   id: string;
@@ -62,6 +63,32 @@ class BiophilicAudioEngine {
   // Media & Recitation Overlay Bus
   private mediaGain: GainNode | null = null;
   private mediaSourceNode: MediaElementAudioSourceNode | null = null;
+
+  // Neuro-Acoustic Entrainment Audio Nodes
+  private entrainmentBusGain: GainNode | null = null;
+  private entrainmentOscLeft: OscillatorNode | null = null;
+  private entrainmentOscRight: OscillatorNode | null = null;
+  private entrainmentPannerLeft: StereoPannerNode | null = null;
+  private entrainmentPannerRight: StereoPannerNode | null = null;
+  private isochronicCarrierOsc: OscillatorNode | null = null;
+  private isochronicAmpGain: GainNode | null = null;
+  private isochronicLfo: OscillatorNode | null = null;
+  private isochronicLfoGain: GainNode | null = null;
+  private entrainmentState: {
+    active: boolean;
+    bandId: BrainwaveBandId;
+    targetHz: number;
+    carrierHz: number;
+    mode: EntrainmentMode;
+    intensity: number;
+  } = {
+    active: false,
+    bandId: 'alpha',
+    targetHz: 10.0,
+    carrierHz: 256,
+    mode: 'hybrid',
+    intensity: 0.35,
+  };
 
   // Custom FLAC & Hi-Res Soundbank Slots
   private customSlots: Map<
@@ -146,6 +173,11 @@ class BiophilicAudioEngine {
     this.mediaGain = this.ctx.createGain();
     this.mediaGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
     this.mediaGain.connect(this.adhanSilenceGain);
+
+    // Neuro-Acoustic Entrainment Master Bus
+    this.entrainmentBusGain = this.ctx.createGain();
+    this.entrainmentBusGain.gain.setValueAtTime(0, this.ctx.currentTime);
+    this.entrainmentBusGain.connect(this.adhanSilenceGain);
 
     // Build Continuous Generators
     this.setupWaterLayer();
@@ -389,6 +421,187 @@ class BiophilicAudioEngine {
     return new Promise((resolve) => {
       setTimeout(resolve, (durationSec + 0.1) * 1000);
     });
+  }
+
+  // --- Neuro-Acoustic Entrainment & Brainwave Synchronizer ---
+  public startNeuroEntrainment(
+    bandId: BrainwaveBandId = 'alpha',
+    targetHz = 10.0,
+    carrierHz = 256,
+    mode: EntrainmentMode = 'hybrid',
+    intensity = 0.35
+  ) {
+    if (!this.ctx) this.init();
+    if (!this.ctx || !this.entrainmentBusGain) return;
+    const now = this.ctx.currentTime;
+
+    this.stopNeuroEntrainment(0.05);
+
+    this.entrainmentState = {
+      active: true,
+      bandId,
+      targetHz,
+      carrierHz,
+      mode,
+      intensity: Math.max(0.05, Math.min(1.0, intensity)),
+    };
+
+    const masterEntrainVol = this.entrainmentState.intensity * 0.22;
+    this.entrainmentBusGain.gain.cancelScheduledValues(now);
+    this.entrainmentBusGain.gain.setValueAtTime(0, now);
+    this.entrainmentBusGain.gain.linearRampToValueAtTime(masterEntrainVol, now + 0.8);
+
+    // 1. Binaural Beats Stereo Synthesis (Left: carrier, Right: carrier + targetHz)
+    if (mode === 'binaural_stereo' || mode === 'hybrid') {
+      this.entrainmentOscLeft = this.ctx.createOscillator();
+      this.entrainmentOscRight = this.ctx.createOscillator();
+      this.entrainmentPannerLeft = this.ctx.createStereoPanner();
+      this.entrainmentPannerRight = this.ctx.createStereoPanner();
+
+      this.entrainmentOscLeft.type = 'sine';
+      this.entrainmentOscRight.type = 'sine';
+
+      this.entrainmentOscLeft.frequency.setValueAtTime(carrierHz, now);
+      this.entrainmentOscRight.frequency.setValueAtTime(carrierHz + targetHz, now);
+
+      this.entrainmentPannerLeft.pan.setValueAtTime(-1.0, now);
+      this.entrainmentPannerRight.pan.setValueAtTime(1.0, now);
+
+      const binauralGain = this.ctx.createGain();
+      binauralGain.gain.setValueAtTime(0.48, now);
+
+      this.entrainmentOscLeft.connect(this.entrainmentPannerLeft);
+      this.entrainmentOscRight.connect(this.entrainmentPannerRight);
+
+      this.entrainmentPannerLeft.connect(binauralGain);
+      this.entrainmentPannerRight.connect(binauralGain);
+      binauralGain.connect(this.entrainmentBusGain);
+
+      this.entrainmentOscLeft.start(now);
+      this.entrainmentOscRight.start(now);
+    }
+
+    // 2. Subliminal Isochronic Amplitude Modulation (Natural pulsing for speakers)
+    if (mode === 'isochronic_biophilic' || mode === 'hybrid') {
+      this.isochronicCarrierOsc = this.ctx.createOscillator();
+      this.isochronicCarrierOsc.type = 'sine';
+      this.isochronicCarrierOsc.frequency.setValueAtTime(carrierHz * 0.5, now);
+
+      this.isochronicAmpGain = this.ctx.createGain();
+      this.isochronicAmpGain.gain.setValueAtTime(0.32, now);
+
+      this.isochronicLfo = this.ctx.createOscillator();
+      this.isochronicLfo.type = 'sine';
+      this.isochronicLfo.frequency.setValueAtTime(targetHz, now);
+
+      this.isochronicLfoGain = this.ctx.createGain();
+      this.isochronicLfoGain.gain.setValueAtTime(0.25, now);
+
+      this.isochronicLfo.connect(this.isochronicLfoGain);
+      this.isochronicLfoGain.connect(this.isochronicAmpGain.gain);
+
+      this.isochronicCarrierOsc.connect(this.isochronicAmpGain);
+      this.isochronicAmpGain.connect(this.entrainmentBusGain);
+
+      this.isochronicCarrierOsc.start(now);
+      this.isochronicLfo.start(now);
+    }
+  }
+
+  public updateNeuroEntrainment(params: Partial<{ targetHz: number; carrierHz: number; mode: EntrainmentMode; intensity: number }>) {
+    if (!this.ctx || !this.entrainmentState.active) return;
+    const now = this.ctx.currentTime;
+
+    if (params.intensity !== undefined) {
+      this.entrainmentState.intensity = Math.max(0.05, Math.min(1.0, params.intensity));
+      if (this.entrainmentBusGain) {
+        const targetVol = this.entrainmentState.intensity * 0.22;
+        this.entrainmentBusGain.gain.setTargetAtTime(targetVol, now, 0.2);
+      }
+    }
+
+    if (params.targetHz !== undefined) {
+      this.entrainmentState.targetHz = params.targetHz;
+      if (this.entrainmentOscRight) {
+        this.entrainmentOscRight.frequency.setTargetAtTime(
+          this.entrainmentState.carrierHz + params.targetHz,
+          now,
+          0.1
+        );
+      }
+      if (this.isochronicLfo) {
+        this.isochronicLfo.frequency.setTargetAtTime(params.targetHz, now, 0.1);
+      }
+    }
+
+    if (params.carrierHz !== undefined) {
+      this.entrainmentState.carrierHz = params.carrierHz;
+      if (this.entrainmentOscLeft) {
+        this.entrainmentOscLeft.frequency.setTargetAtTime(params.carrierHz, now, 0.1);
+      }
+      if (this.entrainmentOscRight) {
+        this.entrainmentOscRight.frequency.setTargetAtTime(
+          params.carrierHz + this.entrainmentState.targetHz,
+          now,
+          0.1
+        );
+      }
+      if (this.isochronicCarrierOsc) {
+        this.isochronicCarrierOsc.frequency.setTargetAtTime(params.carrierHz * 0.5, now, 0.1);
+      }
+    }
+
+    if (params.mode !== undefined && params.mode !== this.entrainmentState.mode) {
+      this.startNeuroEntrainment(
+        this.entrainmentState.bandId,
+        this.entrainmentState.targetHz,
+        this.entrainmentState.carrierHz,
+        params.mode,
+        this.entrainmentState.intensity
+      );
+    }
+  }
+
+  public stopNeuroEntrainment(fadeSeconds = 0.5) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    if (this.entrainmentBusGain) {
+      this.entrainmentBusGain.gain.cancelScheduledValues(now);
+      this.entrainmentBusGain.gain.linearRampToValueAtTime(0, now + fadeSeconds);
+    }
+
+    setTimeout(() => {
+      try {
+        if (this.entrainmentOscLeft) {
+          this.entrainmentOscLeft.stop();
+          this.entrainmentOscLeft.disconnect();
+          this.entrainmentOscLeft = null;
+        }
+        if (this.entrainmentOscRight) {
+          this.entrainmentOscRight.stop();
+          this.entrainmentOscRight.disconnect();
+          this.entrainmentOscRight = null;
+        }
+        if (this.isochronicCarrierOsc) {
+          this.isochronicCarrierOsc.stop();
+          this.isochronicCarrierOsc.disconnect();
+          this.isochronicCarrierOsc = null;
+        }
+        if (this.isochronicLfo) {
+          this.isochronicLfo.stop();
+          this.isochronicLfo.disconnect();
+          this.isochronicLfo = null;
+        }
+      } catch {
+        // Safe disposal
+      }
+      this.entrainmentState.active = false;
+    }, fadeSeconds * 1000 + 50);
+  }
+
+  public getNeuroEntrainmentState() {
+    return { ...this.entrainmentState };
   }
 
   // --- Active Urban Noise Masking Mode ---

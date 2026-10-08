@@ -27,6 +27,7 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'engine', labelAr: 'المحرك الصوتي', labelEn: 'Soundscape Engine' },
+    { id: 'neuro_sync', labelAr: 'التحفيز العصبي والدماغ', labelEn: 'Neuro Sync & Daemon' },
     { id: 'fauna_rituals', labelAr: 'الطيور والطقوس والتطوير', labelEn: 'Fauna & Rituals' },
     { id: 'offline', labelAr: 'التشغيل بدون نت PWA', labelEn: 'Offline & Cache' },
     { id: 'scorecard', labelAr: 'مؤشرات جودة الحياة', labelEn: 'Wellbeing Scorecard' },

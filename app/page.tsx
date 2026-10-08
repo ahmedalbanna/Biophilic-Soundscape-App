@@ -28,6 +28,7 @@ import { FamilySocialContextsView } from '@/components/FamilySocialContextsView'
 import { BiophilicWellbeingScorecardView } from '@/components/BiophilicWellbeingScorecardView';
 import { OfflineStoragePwaView } from '@/components/OfflineStoragePwaView';
 import { FaunaRitualsStudioView } from '@/components/FaunaRitualsStudioView';
+import { NeuroEntrainmentView } from '@/components/NeuroEntrainmentView';
 import { SoundscapePreset } from '@/lib/preset-studio';
 import { getAudioEngine, ContinuousLayerId, StochasticEventId, AcousticEventLog } from '@/lib/audio-engine';
 import { getVadManager, VadStatus, VadConfig } from '@/lib/vad-engine';
@@ -424,6 +425,13 @@ export default function Home() {
             isDucked={vadStatus.isDucked}
             duckingEnvelope={vadStatus.duckingEnvelope}
             onTriggerEvent={handleTriggerEvent}
+          />
+        )}
+
+        {activeTab === 'neuro_sync' && (
+          <NeuroEntrainmentView
+            onEngineStartRequest={handleTogglePlay}
+            isEnginePlaying={isPlaying}
           />
         )}
 
